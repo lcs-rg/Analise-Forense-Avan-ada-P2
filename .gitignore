@@ -1,6 +1,5 @@
 # Arquivos de compilação Java
 *.class
-*.jar
 target/
 build/
 bin/
