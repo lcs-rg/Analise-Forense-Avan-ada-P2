@@ -68,9 +68,10 @@ List<String> resultado2 = analyzer.reconstruirLinhaTempo("teste2.csv", "session-
 - **VS Code**: Java Projects → Referenced Libraries → +
 
 ### 3. Importe as classes
+
 ```java
-import br.edu.icev.aed.forense.AnaliseForenseAvancada;
-import br.edu.icev.aed.forense.Alerta;
+
+
 ```
 
 ## 🔥 Os 5 Desafios

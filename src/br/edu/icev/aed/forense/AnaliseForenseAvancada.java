@@ -51,7 +51,7 @@ public interface AnaliseForenseAvancada {
      * Para cada evento de transferência, encontra o próximo evento
      * com BYTES_TRANSFERRED maior.
      * 
-     * @param caminhoArquivo Caminho para o arquivo CSV de logs
+     * @param caminhoArquivo C  aminho para o arquivo CSV de logs
      * @return Mapa onde chave=timestamp do evento atual, valor=timestamp do próximo evento com mais bytes
      * @throws IOException Se houver erro ao ler o arquivo
      */
