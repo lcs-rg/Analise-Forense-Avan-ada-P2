@@ -29,10 +29,10 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                 while ((linha = br.readLine()) != null) {//loop para ler todas as linhas
                     String[] campos = linha.split(",");//separa os campos do log
                     if (campos[2].equals(sessionId)){//caso sessionId seja igual, adiciona a fila
-                        timeline.add(campos[4]);
+                        timeline.add(campos[3]);
                     }
                 }
-                //desenfileirando da deque e enfileirando no arrayList final
+                //desenfileirando deque e enfileirando no arrayList final
                 while (!timeline.isEmpty()) {
                     result.add(timeline.poll());
                 }
@@ -43,8 +43,40 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public List<Alerta> priorizarAlertas(String arquivo, int n) throws IOException {
+        if (n == 0){
+            return Collections.emptyList();
+        }
         // Implementar usando PriorityQueue<Alerta>
-        List<String> alertas = new PriorityQueue<>();
+        PriorityQueue<Alerta> alertas = new PriorityQueue<>(
+                Comparator.comparingInt(Alerta::getSeverityLevel)
+        );
+        List<Alerta> resultados = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1024 * 1024)){
+            br.readLine();
+            String linha;
+            while ((linha = br.readLine()) != null){
+                String[] campos = linha.split(",");
+                Alerta alerta = new Alerta(
+                        Long.parseLong(campos[0]),
+                        campos[1],
+                        campos[2],
+                        campos[3],
+                        campos[4],
+                        Integer.parseInt(campos[5]),
+                        Long.parseLong(campos[6])
+                );
+            if (alertas.size() < n){
+                alertas.add(alerta);
+            }
+            }
+
+            for (int i = 0; i < n; i++){
+                resultados.add(alertas.poll());
+            }
+        }
+
+        return resultados;
+
     }
 
     @Override
