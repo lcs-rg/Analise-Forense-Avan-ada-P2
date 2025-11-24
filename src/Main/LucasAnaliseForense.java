@@ -14,8 +14,49 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public Set<String> encontrarSessoesInvalidas(String arquivo) throws IOException {
-        LinkedHashMap<String, Stack>
-        // Implementar usando Map<String, Stack<String>>
+        Map<String, Integer> estado = new HashMap<>();
+        Set<String> invalidas = new HashSet<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 8192)) {
+            String linha;
+
+            while ((linha = br.readLine()) != null) {
+
+                int p1 = linha.indexOf(',');
+                int p2 = linha.indexOf(',', p1 + 1);
+
+                if (p1 == -1 || p2 == -1) {
+                    continue;
+                }
+
+                String acao = linha.substring(0, p1).trim();
+                String sessao = linha.substring(p1 + 1, p2).trim();
+
+                int nivel = estado.getOrDefault(sessao, 0);
+
+                if (acao.equals("LOGIN")) {
+                    if (nivel > 0) {
+                        invalidas.add(sessao);
+                    }
+                    estado.put(sessao, nivel + 1);
+                }
+                else if (acao.equals("LOGOUT")) {
+                    if (nivel == 0) {
+                        invalidas.add(sessao);
+                    } else {
+                        estado.put(sessao, nivel - 1);
+                    }
+                }
+            }
+        }
+
+        for (Map.Entry<String, Integer> entry : estado.entrySet()) {
+            if (entry.getValue() > 0) {
+                invalidas.add(entry.getKey());
+            }
+        }
+
+        return invalidas;
     }
 
     @Override
@@ -64,7 +105,6 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                         campos[4],
                         Integer.parseInt(campos[5]),
                         Long.parseLong(campos[6])
-                );
             if (alertas.size() < n){
                 alertas.add(alerta);
             }
@@ -81,6 +121,16 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String arquivo) throws IOException {
+        Map<Integer, Integer> picos = new HashMap<>();
+        Stack<Map> eventos = new Stack<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1024 * 1024)){
+            br.readLine();
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                String[] campos = linha.split(",");
+
+            }
+        }
         // Implementar usando Stack (Next Greater Element)
     }
 
