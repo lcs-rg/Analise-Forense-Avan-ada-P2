@@ -61,26 +61,33 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String arquivo, String sessionId) throws IOException {
-        // Implementar usando Queue<String>
-        Queue<String> timeline = new ArrayDeque<>();//Deque para enfileirar histórico criada
-        List<String> result = new ArrayList<>();//ArrayList do histórico final
-            try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1024 * 1024)){//buffer com leitura de 1MB
-                br.readLine();//lê cabeçalho
-                String linha;
-                while ((linha = br.readLine()) != null) {//loop para ler todas as linhas
-                    String[] campos = linha.split(",");//separa os campos do log
-                    if (campos[2].equals(sessionId)){//caso sessionId seja igual, adiciona a fila
-                        timeline.add(campos[3]);
-                    }
-                }
-                //desenfileirando deque e enfileirando no arrayList final
-                while (!timeline.isEmpty()) {
-                    result.add(timeline.poll());
+
+        List<String> result = new ArrayList<>();
+        String linha;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+
+            br.readLine();
+
+            while ((linha = br.readLine()) != null) {
+
+                int p1 = linha.indexOf(',');
+                int p2 = linha.indexOf(',', p1 + 1);
+                int p3 = linha.indexOf(',', p2 + 1);
+
+                if (p1 < 0 || p2 < 0 || p3 < 0) continue;
+
+                String sessao = linha.substring(p2 + 1, p3);
+
+                if (sessao.equals(sessionId)) {
+                    result.add(linha.substring(p3 + 1));
                 }
             }
-                        return result.isEmpty() ? Collections.emptyList() : result;
+        }
 
+        return result;
     }
+
 
     @Override
     public List<Alerta> priorizarAlertas(String arquivo, int n) throws IOException {
