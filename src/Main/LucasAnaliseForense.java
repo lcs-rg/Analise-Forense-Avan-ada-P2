@@ -80,39 +80,40 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public List<Alerta> priorizarAlertas(String arquivo, int n) throws IOException {
-        if (n == 0){
-            return Collections.emptyList();
+        if (n <= 0) return Collections.emptyList();
+
+        PriorityQueue<Alerta> fila = new PriorityQueue<>(Comparator.comparingInt(Alerta::getSeverityLevel));
+        List<Alerta> result = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+            String linha = br.readLine();
+            if (linha == null) return Collections.emptyList();
+
+            while ((linha = br.readLine()) != null) {
+                String[] c = linha.split(",");
+                if (c.length < 7) continue;
+
+                try {
+                    Alerta a = new Alerta(
+                            Long.parseLong(c[0]),
+                            c[1], c[2], c[3], c[4],
+                            Integer.parseInt(c[5]),
+                            Long.parseLong(c[6])
+                    );
+
+                    if (fila.size() < n) fila.add(a);
+                    else if (a.getSeverityLevel() > fila.peek().getSeverityLevel()) {
+                        fila.poll();
+                        fila.add(a);
+                    }
+
+                } catch (NumberFormatException ignored) {}
+            }
         }
-        // Implementar usando PriorityQueue<Alerta>
-        PriorityQueue<Alerta> alertas = new PriorityQueue<>(
-                Comparator.comparingInt(Alerta::getSeverityLevel)
-        );
-        List<Alerta> resultados = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1024 * 1024)){
-            br.readLine();
-            String linha;
-            while ((linha = br.readLine()) != null){
-                String[] campos = linha.split(",");
-                Alerta alerta = new Alerta(
-                        Long.parseLong(campos[0]),
-                        campos[1],
-                        campos[2],
-                        campos[3],
-                        campos[4],
-                        Integer.parseInt(campos[5]),
-                        Long.parseLong(campos[6])
-            if (alertas.size() < n){
-                alertas.add(alerta);
-            }
-            }
 
-            for (int i = 0; i < n; i++){
-                resultados.add(alertas.poll());
-            }
-        }
-
-        return resultados;
-
+        while (!fila.isEmpty()) result.add(fila.poll());
+        Collections.reverse(result);
+        return result;
     }
 
     @Override
