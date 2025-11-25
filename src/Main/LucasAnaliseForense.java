@@ -117,22 +117,87 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
     }
 
     @Override
-    public Map<Long, Long> encontrarPicosTransferencia(String arquivo) throws IOException {
-        Map<Integer, Integer> picos = new HashMap<>();
-        Stack<Map> eventos = new Stack<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1024 * 1024)){
-            br.readLine();
-            String linha;
-            while ((linha = br.readLine()) != null) {
-                String[] campos = linha.split(",");
+    public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
+        File f = new File(caminhoArquivo);
+        if (!f.exists() || !f.isFile()) return Collections.emptyMap();
 
+        Map<Long, Long> mapa = new HashMap<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f), 1024 * 1024)) {
+            String linha = br.readLine();
+            if (linha == null) return Collections.emptyMap();
+
+            while ((linha = br.readLine()) != null) {
+                String[] c = linha.split(",");
+                if (c.length < 7) continue;
+
+                try {
+                    long timestamp = Long.parseLong(c[0]);
+                    long bytes = Long.parseLong(c[6]); // CORRETO
+
+                    mapa.put(timestamp, mapa.getOrDefault(timestamp, 0L) + bytes);
+                } catch (NumberFormatException e) {
+                    continue;
+                }
             }
         }
-        // Implementar usando Stack (Next Greater Element)
+
+        return mapa.isEmpty() ? Collections.emptyMap() : mapa;
     }
 
     @Override
-    public Optional<List<String>> rastrearContaminacao(String arquivo, String origem, String destino) throws IOException {
-        // Implementar usando BFS em grafo
+    public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo) throws IOException {
+        File f = new File(caminhoArquivo);
+        if (!f.exists() || !f.isFile()) return Optional.empty();
+
+        Map<String, Set<String>> grafo = new HashMap<>();
+        Map<String, String> ultimo = new HashMap<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f), 1024 * 1024)) {
+            String linha = br.readLine();
+            if (linha == null) return Optional.empty();
+
+            String l;
+            while ((l = br.readLine()) != null) {
+                String[] c = l.split(",");
+                if (c.length < 7) continue;
+
+                String sessao = c[2];
+                String recurso = c[4];
+
+                if (ultimo.containsKey(sessao)) {
+                    String anterior = ultimo.get(sessao);
+                    grafo.computeIfAbsent(anterior, k -> new HashSet<>()).add(recurso);
+                }
+
+                ultimo.put(sessao, recurso);
+            }
+        }
+
+        if (!grafo.containsKey(recursoInicial)) return Optional.empty();
+
+        Queue<List<String>> fila = new ArrayDeque<>();
+        Set<String> visitados = new HashSet<>();
+
+        fila.add(Collections.singletonList(recursoInicial));
+        visitados.add(recursoInicial);
+
+        while (!fila.isEmpty()) {
+            List<String> caminho = fila.poll();
+            String atual = caminho.get(caminho.size() - 1);
+
+            if (atual.equals(recursoAlvo)) return Optional.of(caminho);
+
+            for (String next : grafo.getOrDefault(atual, Collections.emptySet())) {
+                if (!visitados.contains(next)) {
+                    visitados.add(next);
+                    List<String> novo = new ArrayList<>(caminho);
+                    novo.add(next);
+                    fila.add(novo);
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 }
