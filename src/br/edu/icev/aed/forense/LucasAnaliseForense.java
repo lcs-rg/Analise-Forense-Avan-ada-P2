@@ -107,13 +107,15 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                 if (linha.trim().isEmpty()) continue;
                 List<String> cols = parseCsvLine(linha);
                 if (cols.size() < 7) continue;
+                String actionType = cols.get(3);
+                if ("LOGIN".equalsIgnoreCase(actionType) || "LOGOUT".equalsIgnoreCase(actionType)) continue; // Filtrar non-alertas
                 try {
                     long timestamp = Long.parseLong(cols.get(0).trim());
                     String userId = cols.get(1);
                     String sessionId = cols.get(2);
-                    String actionType = cols.get(3);
                     String targetResource = cols.get(4);
                     int severityLevel = Integer.parseInt(cols.get(5).trim());
+                    if (severityLevel <= 1) continue; // Opcional: filtro por severity >1 para alertas reais
                     long bytesTransferred = 0L;
                     String bytesStr = cols.get(6).trim();
                     if (!bytesStr.isEmpty()) {
@@ -147,10 +149,7 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                 List<String> cols = parseCsvLine(linha);
                 if (cols.size() < 7) continue;
                 String action = cols.get(3);
-                if (!"DATA_TRANSFER".equalsIgnoreCase(action)) {
-                    String bytesStr = cols.get(6).trim();
-                    if (bytesStr.isEmpty()) continue;
-                }
+                if (!"DATA_TRANSFER".equalsIgnoreCase(action)) continue; // Filtro corrigido
                 try {
                     long timestamp = Long.parseLong(cols.get(0).trim());
                     String bytesStr = cols.get(6).trim();
@@ -167,6 +166,10 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                     pilha.push(atual);
                 } catch (NumberFormatException ignored) {}
             }
+        }
+        // Adicionar -1L para eventos sem next greater
+        while (!pilha.isEmpty()) {
+            resultado.put(pilha.pop().timestamp, -1L);
         }
         return resultado.isEmpty() ? Collections.emptyMap() : resultado;
     }
@@ -192,8 +195,11 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                 List<String> cols = parseCsvLine(linha);
                 if (cols.size() < 5) continue;
                 String sessionId = cols.get(2);
+                String actionType = cols.get(3);
                 String recurso = cols.get(4);
                 if (sessionId == null || sessionId.isEmpty() || recurso == null) continue;
+                // Filtro para ações relevantes (ex.: FILE_ACCESS ou DATA_TRANSFER)
+                if (!"FILE_ACCESS".equalsIgnoreCase(actionType) && !"DATA_TRANSFER".equalsIgnoreCase(actionType)) continue;
                 if (ultimoRecursoPorSessao.containsKey(sessionId)) {
                     String anterior = ultimoRecursoPorSessao.get(sessionId);
                     grafo.computeIfAbsent(anterior, k -> new HashSet<>()).add(recurso);
