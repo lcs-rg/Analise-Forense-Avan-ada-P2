@@ -5,41 +5,67 @@ import java.util.*;
 
 public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
-    public LucasAnaliseForense(){}
+    public LucasAnaliseForense() {}
+
+    private List<String> parseCsvLine(String line) {
+        List<String> fields = new ArrayList<>();
+        if (line == null) return fields;
+        StringBuilder sb = new StringBuilder();
+        boolean inQuotes = false;
+        char prev = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"' && prev != '\\') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                fields.add(sb.toString());
+                sb.setLength(0);
+            } else {
+                sb.append(c);
+            }
+            prev = c;
+        }
+        fields.add(sb.toString());
+        for (int i = 0; i < fields.size(); i++) {
+            String f = fields.get(i).trim();
+            if (f.length() >= 2 && f.charAt(0) == '"' && f.charAt(f.length() - 1) == '"') {
+                f = f.substring(1, f.length() - 1);
+            }
+            fields.set(i, f);
+        }
+        return fields;
+    }
 
     @Override
     public Set<String> encontrarSessoesInvalidas(String arquivo) throws IOException {
         Set<String> invalidas = new HashSet<>();
         Map<String, Deque<String>> pilhas = new HashMap<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+        File f = new File(arquivo);
+        if (!f.exists() || !f.isFile()) return invalidas;
+        try (BufferedReader br = new BufferedReader(new FileReader(f), 1_048_576)) {
             String linha = br.readLine();
             if (linha == null) return invalidas;
             while ((linha = br.readLine()) != null) {
-                int p1 = linha.indexOf(',');
-                int p2 = linha.indexOf(',', p1 + 1);
-                int p3 = linha.indexOf(',', p2 + 1);
-                int p4 = linha.indexOf(',', p3 + 1);
-                if (p1 < 0 || p2 < 0 || p3 < 0 || p4 < 0) continue;
-                String sessionId = linha.substring(p2 + 1, p3);
-                String actionType = linha.substring(p3 + 1, p4);
-                if (sessionId.isEmpty()) continue;
+                if (linha.trim().isEmpty()) continue;
+                List<String> cols = parseCsvLine(linha);
+                if (cols.size() < 4) continue;
+                String sessionId = cols.get(2);
+                String actionType = cols.get(3);
+                if (sessionId == null || sessionId.isEmpty()) continue;
                 pilhas.putIfAbsent(sessionId, new ArrayDeque<>());
                 Deque<String> pilha = pilhas.get(sessionId);
-                if ("LOGIN".equals(actionType)) {
+                if ("LOGIN".equalsIgnoreCase(actionType)) {
                     if (!pilha.isEmpty()) invalidas.add(sessionId);
                     pilha.push("LOGIN");
-                } else if ("LOGOUT".equals(actionType)) {
+                } else if ("LOGOUT".equalsIgnoreCase(actionType)) {
                     if (pilha.isEmpty()) invalidas.add(sessionId);
                     else pilha.pop();
                 }
             }
         }
-
         for (Map.Entry<String, Deque<String>> e : pilhas.entrySet()) {
             if (!e.getValue().isEmpty()) invalidas.add(e.getKey());
         }
-
         return invalidas;
     }
 
@@ -47,23 +73,20 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
     public List<String> reconstruirLinhaTempo(String arquivo, String sessionId) throws IOException {
         if (sessionId == null || sessionId.isEmpty()) return Collections.emptyList();
         List<String> result = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+        File f = new File(arquivo);
+        if (!f.exists() || !f.isFile()) return Collections.emptyList();
+        try (BufferedReader br = new BufferedReader(new FileReader(f), 1_048_576)) {
             String linha = br.readLine();
             if (linha == null) return Collections.emptyList();
             while ((linha = br.readLine()) != null) {
-                int p1 = linha.indexOf(',');
-                int p2 = linha.indexOf(',', p1 + 1);
-                int p3 = linha.indexOf(',', p2 + 1);
-                int p4 = linha.indexOf(',', p3 + 1);
-                if (p1 < 0 || p2 < 0 || p3 < 0 || p4 < 0) continue;
-                String sessao = linha.substring(p2 + 1, p3);
-                if (!sessao.equals(sessionId)) continue;
-                String timestamp = linha.substring(0, p1);
-                String actionType = linha.substring(p3 + 1, p4);
-                String targetResource;
-                int p5 = linha.indexOf(',', p4 + 1);
-                if (p5 > 0) targetResource = linha.substring(p4 + 1, p5);
-                else targetResource = linha.substring(p4 + 1);
+                if (linha.trim().isEmpty()) continue;
+                List<String> cols = parseCsvLine(linha);
+                if (cols.size() < 5) continue;
+                String sessao = cols.get(2);
+                if (!sessionId.equals(sessao)) continue;
+                String timestamp = cols.get(0);
+                String actionType = cols.get(3);
+                String targetResource = cols.size() > 4 ? cols.get(4) : "";
                 String evento = timestamp + ": " + actionType + " -> " + targetResource;
                 result.add(evento);
             }
@@ -74,21 +97,28 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
     @Override
     public List<Alerta> priorizarAlertas(String arquivo, int n) throws IOException {
         if (n <= 0) return Collections.emptyList();
+        File f = new File(arquivo);
+        if (!f.exists() || !f.isFile()) return Collections.emptyList();
         PriorityQueue<Alerta> fila = new PriorityQueue<>(Comparator.comparingInt(Alerta::getSeverityLevel));
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+        try (BufferedReader br = new BufferedReader(new FileReader(f), 1_048_576)) {
             String linha = br.readLine();
             if (linha == null) return Collections.emptyList();
             while ((linha = br.readLine()) != null) {
-                String[] campos = linha.split(",", 7);
-                if (campos.length < 7) continue;
+                if (linha.trim().isEmpty()) continue;
+                List<String> cols = parseCsvLine(linha);
+                if (cols.size() < 7) continue;
                 try {
-                    long timestamp = Long.parseLong(campos[0]);
-                    String userId = campos[1];
-                    String sessionId = campos[2];
-                    String actionType = campos[3];
-                    String targetResource = campos[4];
-                    int severityLevel = Integer.parseInt(campos[5]);
-                    long bytesTransferred = campos[6].isEmpty() ? 0L : Long.parseLong(campos[6]);
+                    long timestamp = Long.parseLong(cols.get(0).trim());
+                    String userId = cols.get(1);
+                    String sessionId = cols.get(2);
+                    String actionType = cols.get(3);
+                    String targetResource = cols.get(4);
+                    int severityLevel = Integer.parseInt(cols.get(5).trim());
+                    long bytesTransferred = 0L;
+                    String bytesStr = cols.get(6).trim();
+                    if (!bytesStr.isEmpty()) {
+                        try { bytesTransferred = Long.parseLong(bytesStr); } catch (NumberFormatException ex) { bytesTransferred = 0L; }
+                    }
                     Alerta a = new Alerta(timestamp, userId, sessionId, actionType, targetResource, severityLevel, bytesTransferred);
                     if (fila.size() < n) fila.add(a);
                     else if (a.getSeverityLevel() > fila.peek().getSeverityLevel()) {
@@ -113,11 +143,21 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
             String linha = br.readLine();
             if (linha == null) return Collections.emptyMap();
             while ((linha = br.readLine()) != null) {
-                String[] c = linha.split(",", 7);
-                if (c.length < 7) continue;
+                if (linha.trim().isEmpty()) continue;
+                List<String> cols = parseCsvLine(linha);
+                if (cols.size() < 7) continue;
+                String action = cols.get(3);
+                if (!"DATA_TRANSFER".equalsIgnoreCase(action)) {
+                    String bytesStr = cols.get(6).trim();
+                    if (bytesStr.isEmpty()) continue;
+                }
                 try {
-                    long timestamp = Long.parseLong(c[0]);
-                    long bytes = c[6].isEmpty() ? 0L : Long.parseLong(c[6]);
+                    long timestamp = Long.parseLong(cols.get(0).trim());
+                    String bytesStr = cols.get(6).trim();
+                    long bytes = 0L;
+                    if (!bytesStr.isEmpty()) {
+                        try { bytes = Long.parseLong(bytesStr); } catch (NumberFormatException ex) { bytes = 0L; }
+                    }
                     if (bytes <= 0) continue;
                     EventoTransferencia atual = new EventoTransferencia(timestamp, bytes);
                     while (!pilha.isEmpty() && pilha.peek().bytes < atual.bytes) {
@@ -134,11 +174,12 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
     private static class EventoTransferencia {
         long timestamp;
         long bytes;
-        EventoTransferencia(long t,long b){timestamp=t;bytes=b;}
+        EventoTransferencia(long t, long b) { timestamp = t; bytes = b; }
     }
 
     @Override
     public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo) throws IOException {
+        if (recursoInicial == null || recursoAlvo == null) return Optional.empty();
         File f = new File(caminhoArquivo);
         if (!f.exists() || !f.isFile()) return Optional.empty();
         Map<String, Set<String>> grafo = new HashMap<>();
@@ -147,14 +188,12 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
             String linha = br.readLine();
             if (linha == null) return Optional.empty();
             while ((linha = br.readLine()) != null) {
-                int p1 = linha.indexOf(',');
-                int p2 = linha.indexOf(',', p1 + 1);
-                int p3 = linha.indexOf(',', p2 + 1);
-                int p4 = linha.indexOf(',', p3 + 1);
-                int p5 = linha.indexOf(',', p4 + 1);
-                if (p1 < 0 || p2 < 0 || p3 < 0 || p4 < 0 || p5 < 0) continue;
-                String sessionId = linha.substring(p2 + 1, p3);
-                String recurso = linha.substring(p4 + 1, p5);
+                if (linha.trim().isEmpty()) continue;
+                List<String> cols = parseCsvLine(linha);
+                if (cols.size() < 5) continue;
+                String sessionId = cols.get(2);
+                String recurso = cols.get(4);
+                if (sessionId == null || sessionId.isEmpty() || recurso == null) continue;
                 if (ultimoRecursoPorSessao.containsKey(sessionId)) {
                     String anterior = ultimoRecursoPorSessao.get(sessionId);
                     grafo.computeIfAbsent(anterior, k -> new HashSet<>()).add(recurso);
@@ -162,7 +201,6 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
                 ultimoRecursoPorSessao.put(sessionId, recurso);
             }
         }
-        if (recursoInicial == null || recursoAlvo == null) return Optional.empty();
         Queue<List<String>> fila = new ArrayDeque<>();
         Set<String> visitados = new HashSet<>();
         fila.add(Collections.singletonList(recursoInicial));
