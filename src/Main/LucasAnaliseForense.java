@@ -50,31 +50,31 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String arquivo, String sessionId) throws IOException {
+        if (sessionId == null || sessionId.isEmpty()) return Collections.emptyList();
 
+        Queue<String> fila = new ArrayDeque<>();
         List<String> result = new ArrayList<>();
-        String linha;
 
         try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
-
-            br.readLine();
+            String linha = br.readLine();
+            if (linha == null) return Collections.emptyList();
 
             while ((linha = br.readLine()) != null) {
-
                 int p1 = linha.indexOf(',');
                 int p2 = linha.indexOf(',', p1 + 1);
                 int p3 = linha.indexOf(',', p2 + 1);
-
-                if (p1 < 0 || p2 < 0 || p3 < 0) continue;
+                if (p3 < 0) continue;
 
                 String sessao = linha.substring(p2 + 1, p3);
+                if (!sessao.equals(sessionId)) continue;
 
-                if (sessao.equals(sessionId)) {
-                    result.add(linha.substring(p3 + 1));
-                }
+                String evento = linha.substring(p3 + 1);
+                if (!evento.isEmpty()) fila.add(evento);
             }
         }
 
-        return result;
+        while (!fila.isEmpty()) result.add(fila.poll());
+        return result.isEmpty() ? Collections.emptyList() : result;
     }
 
 
