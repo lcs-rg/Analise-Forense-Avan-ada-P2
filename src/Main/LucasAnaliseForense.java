@@ -14,46 +14,35 @@ public class LucasAnaliseForense implements AnaliseForenseAvancada {
 
     @Override
     public Set<String> encontrarSessoesInvalidas(String arquivo) throws IOException {
-        Map<String, Integer> estado = new HashMap<>();
         Set<String> invalidas = new HashSet<>();
+        Map<String, Integer> estado = new HashMap<>();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 8192)) {
-            String linha;
-
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo), 1_048_576)) {
+            String linha = br.readLine();
+            if (linha == null) return invalidas;
             while ((linha = br.readLine()) != null) {
-
                 int p1 = linha.indexOf(',');
                 int p2 = linha.indexOf(',', p1 + 1);
+                if (p1 < 0 || p2 < 0) continue;
 
-                if (p1 == -1 || p2 == -1) {
-                    continue;
-                }
+                String acao = linha.substring(0, p1);
+                String sessao = linha.substring(p1 + 1, p2);
+                if (sessao.isEmpty()) continue;
 
-                String acao = linha.substring(0, p1).trim();
-                String sessao = linha.substring(p1 + 1, p2).trim();
-
-                int nivel = estado.getOrDefault(sessao, 0);
+                int valor = estado.getOrDefault(sessao, 0);
 
                 if (acao.equals("LOGIN")) {
-                    if (nivel > 0) {
-                        invalidas.add(sessao);
-                    }
-                    estado.put(sessao, nivel + 1);
-                }
-                else if (acao.equals("LOGOUT")) {
-                    if (nivel == 0) {
-                        invalidas.add(sessao);
-                    } else {
-                        estado.put(sessao, nivel - 1);
-                    }
+                    if (valor > 0) invalidas.add(sessao);
+                    estado.put(sessao, valor + 1);
+                } else if (acao.equals("LOGOUT")) {
+                    if (valor == 0) invalidas.add(sessao);
+                    else estado.put(sessao, valor - 1);
                 }
             }
         }
 
-        for (Map.Entry<String, Integer> entry : estado.entrySet()) {
-            if (entry.getValue() > 0) {
-                invalidas.add(entry.getKey());
-            }
+        for (var e : estado.entrySet()) {
+            if (e.getValue() > 0) invalidas.add(e.getKey());
         }
 
         return invalidas;
