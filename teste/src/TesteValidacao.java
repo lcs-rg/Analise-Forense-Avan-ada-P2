@@ -34,7 +34,7 @@ public class TesteValidacao {
             // Teste 2: Reconstruir Linha do Tempo
             System.out.println("🔍 Teste 2: Reconstruir Linha do Tempo");
             try {
-                List<String> timeline = impl.reconstruirLinhaTempo(arquivoCSV, "session-test");
+                List<String> timeline = impl.reconstruirLinhaTempo(arquivoCSV, "session-a-01");
                 System.out.println("✅ Método executado!");
                 System.out.println("   Eventos encontrados: " + timeline.size());
                 if (!timeline.isEmpty()) {
@@ -70,7 +70,7 @@ public class TesteValidacao {
             // Teste 5: Rastrear Contaminação
             System.out.println("🔍 Teste 5: Rastrear Contaminação");
             try {
-                Optional<List<String>> caminho = impl.rastrearContaminacao(arquivoCSV, "/origem", "/destino");
+                Optional<List<String>> caminho = impl.rastrearContaminacao(arquivoCSV, "/usr/bin/python", "/var/www/index.html");
                 System.out.println("✅ Método executado!");
                 if (caminho.isPresent()) {
                     System.out.println("   Caminho encontrado: " + caminho.get());
